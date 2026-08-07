@@ -1,0 +1,37 @@
+# 💊 Medicine Reminder App (MERN)
+
+A full-stack MERN project that allows users to set medicine reminders with time-based alerts, notifications, and status tracking.
+
+---
+
+## 🚀 Features
+
+- User Authentication (Register/Login)
+- JWT Protected Routes
+- Add Medicine Reminder
+- Set Time for Medicine
+- Mark as Taken / Missed
+- Delete Reminder
+- Browser Notification Popup
+- Cron-based backend scheduler
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend:
+- React (Vite)
+- Axios
+- React Router
+
+### Backend:
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JWT
+- Bcrypt
+
+---
+
+## 📁 Project Structure
