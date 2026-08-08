@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Reminder = require("../models/Reminder");
 const MedicineLog = require("../models/MedicineLog");
 const User = require("../models/User");
@@ -49,11 +50,15 @@ const upsertMedicineLog = async (reminder, status) => {
   }
 };
 
+// Medicine types that track a countable quantity/stock
+const STOCK_TRACKED_TYPES = ["Tablet", "Syrup", "Eye Drop", "Inhaler"];
+
 // 4. Send low stock email alert
 const checkAndSendLowStockAlert = async (reminder, previousStatus, status) => {
   if (
     status === "taken" &&
     previousStatus !== "taken" &&
+    STOCK_TRACKED_TYPES.includes(reminder.medicineType) &&
     reminder.availableUnits <= reminder.lowStockAlert
   ) {
     const user = await User.findById(reminder.userId);
@@ -104,16 +109,18 @@ exports.createReminder = async (req, res) => {
     if (typeError) return res.status(400).json({ message: typeError });
 
     const reminderTimes = Array.isArray(time) ? time : [time];
+    const groupId = new mongoose.Types.ObjectId();
 
     const createPromises = reminderTimes.map((reminderTime) =>
       Reminder.create({
         userId: req.user.id,
+        groupId,
         medicineName,
         medicineType,
         availableUnits: Number(availableUnits) || 0,
         dose: Number(dose) || 0,
         eye: eye || "",
-        time: reminderTime,
+        time: [reminderTime],
         reminderType,
         reminderDate: reminderType === "once" ? reminderDate : null,
         weekDay: reminderType === "weekly" ? weekDay : null,
@@ -198,14 +205,24 @@ const updateReminderStatus = async (req, res) => {
     reminder.isSnoozed = false;
     reminder.snoozedUntil = null;
 
-    // Adjust stock only on status transition
-    const stockMedicines = ["Tablet", "Syrup", "Eye Drop", "Inhaler"];
-    if (stockMedicines.includes(reminder.medicineType)) {
+    // Stock is shared across every reminder time-slot for the same
+    // medicine (same groupId), so adjust and sync it across all of them.
+    if (STOCK_TRACKED_TYPES.includes(reminder.medicineType)) {
+      let newStock = reminder.availableUnits;
+
       if (status === "taken" && previousStatus !== "taken") {
-        reminder.availableUnits = Math.max(0, reminder.availableUnits - reminder.dose);
+        newStock = Math.max(0, reminder.availableUnits - reminder.dose);
       }
       if (status === "missed" && previousStatus === "taken") {
-        reminder.availableUnits += reminder.dose;
+        newStock = reminder.availableUnits + reminder.dose;
+      }
+
+      if (newStock !== reminder.availableUnits) {
+        await Reminder.updateMany(
+          { groupId: reminder.groupId },
+          { availableUnits: newStock }
+        );
+        reminder.availableUnits = newStock;
       }
     }
 

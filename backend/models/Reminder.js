@@ -8,6 +8,12 @@ const reminderSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Links reminders created together (same medicine, multiple times)
+    // so they can share one stock count.
+    groupId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
     medicineName: {
       type: String,
       required: true,
